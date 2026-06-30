@@ -1,89 +1,63 @@
 import os
 import cv2
 import numpy as np
-from pathlib import Path
-from sklearn.preprocessing import LabelEncoder
-from sklearn.svm import SVC
-from sklearn.decomposition import PCA
-from sklearn.pipeline import Pipeline
-from sklearn.calibration import CalibratedClassifierCV
 import joblib
+from sklearn.decomposition import PCA
+from sklearn.svm import SVC
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import LabelEncoder, StandardScaler
+from sklearn.model_selection import train_test_split
 
-# -------------------------
-# CONFIG
-# -------------------------
-DATASET_DIR = r"C:\Users\nayak\Downloads\celebritirs\Celebrity Faces Dataset"
+DATASET_DIR = r"C:\Users\nayak\Downloads\date set pca.zip\celebritirs\Celebrity Faces Dataset"
 OUTPUT_DIR = r"C:\Users\nayak\output\celebritirs_pca_svm_rebuilt"
-PIPE_PATH = os.path.join(OUTPUT_DIR, "pca_svm_pipeline.joblib")
-
-IMG_SIZE = (100, 100)   # 100×100 = 10,000 features
-PCA_COMPONENTS = 40     # number of PCA components
+IMG_SIZE = (160, 160)
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
+X, y = [], []
 
-# ---------------------------------------------------
-# Load images and labels
-# ---------------------------------------------------
-def load_dataset(dataset_path):
-    X = []
-    y = []
-
-    dataset_path = Path(dataset_path)
-
-    for person in dataset_path.iterdir():
-        if not person.is_dir():
+print("Loading images...")
+for person_name in os.listdir(DATASET_DIR):
+    person_dir = os.path.join(DATASET_DIR, person_name)
+    if not os.path.isdir(person_dir):
+        continue
+    for fname in os.listdir(person_dir):
+        fpath = os.path.join(person_dir, fname)
+        img = cv2.imread(fpath)
+        if img is None:
             continue
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        img = cv2.resize(img, IMG_SIZE)
+        X.append(img.flatten())
+        y.append(person_name)
 
-        label = person.name
+print(f"Loaded {len(X)} images across {len(set(y))} people")
 
-        for img_file in person.glob("*.*"):
-            try:
-                img = cv2.imread(str(img_file))
-                if img is None:
-                    continue
-
-                img = cv2.resize(img, IMG_SIZE)
-                img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                X.append(img.flatten())
-                y.append(label)
-
-            except:
-                continue
-
-    return np.array(X), np.array(y)
-
-
-# ---------------------------------------------------
-# TRAINING
-# ---------------------------------------------------
-print("⬆ Loading dataset...")
-X, y = load_dataset(DATASET_DIR)
-print("Dataset loaded:", X.shape, "samples")
-
+X = np.array(X, dtype=np.float32)
 label_enc = LabelEncoder()
 y_enc = label_enc.fit_transform(y)
 
-print("Classes:", list(label_enc.classes_))
-
-# PCA + SVM Pipeline
-pca = PCA(n_components=PCA_COMPONENTS)
-svm = SVC(kernel="linear", probability=True)
-calibrated_svm = CalibratedClassifierCV(svm, cv=5)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y_enc, test_size=0.2, random_state=42, stratify=y_enc
+)
 
 model = Pipeline([
-    ("pca", pca),
-    ("svm", calibrated_svm)
+    ("scaler", StandardScaler()),
+    ("pca", PCA(n_components=0.95, whiten=True, random_state=42)),
+    ("svm", SVC(kernel="rbf", C=10, gamma="scale", probability=True))
 ])
 
-print("🏋 Training model...")
-model.fit(X, y_enc)
+print("Training...")
+model.fit(X_train, y_train)
 
-print("Saving pipeline...")
+train_acc = model.score(X_train, y_train)
+test_acc = model.score(X_test, y_test)
+print(f"Train accuracy: {train_acc:.3f}")
+print(f"Test accuracy: {test_acc:.3f}")
+
 joblib.dump({
-    "model": model,
-    "label_encoder": label_enc
-}, PIPE_PATH)
+    "pipeline": model,
+    "labels": label_enc.classes_
+}, os.path.join(OUTPUT_DIR, "pca_svm_pipeline_calibrated.joblib"))
 
-print("✅ Training complete!")
-print("Saved at:", PIPE_PATH)
+print("Saved model to:", os.path.join(OUTPUT_DIR, "pca_svm_pipeline_calibrated.joblib"))
