@@ -15,8 +15,8 @@ IMG_SIZE = (160, 160)
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 X, y = [], []
-
 print("Loading images...")
+
 for person_name in os.listdir(DATASET_DIR):
     person_dir = os.path.join(DATASET_DIR, person_name)
     if not os.path.isdir(person_dir):
@@ -47,17 +47,14 @@ model = Pipeline([
     ("svm", SVC(kernel="rbf", C=10, gamma="scale", probability=True))
 ])
 
-print("Training...")
+print("Training... please wait...")
 model.fit(X_train, y_train)
 
 train_acc = model.score(X_train, y_train)
 test_acc = model.score(X_test, y_test)
 print(f"Train accuracy: {train_acc:.3f}")
-print(f"Test accuracy: {test_acc:.3f}")
+print(f"Test accuracy:  {test_acc:.3f}")
 
-joblib.dump({
-    "pipeline": model,
-    "labels": label_enc.classes_
-}, os.path.join(OUTPUT_DIR, "pca_svm_pipeline_calibrated.joblib"))
-
-print("Saved model to:", os.path.join(OUTPUT_DIR, "pca_svm_pipeline_calibrated.joblib"))
+save_path = os.path.join(OUTPUT_DIR, "pca_svm_pipeline_calibrated.joblib")
+joblib.dump({"pipeline": model, "labels": label_enc.classes_}, save_path)
+print("Model saved to:", save_path)
