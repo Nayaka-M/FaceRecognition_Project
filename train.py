@@ -8,7 +8,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.model_selection import train_test_split
 
-DATASET_DIR = r"C:\Users\nayak\Downloads\date set pca.zip\celebritirs\Celebrity Faces Dataset"
+DATASET_DIR = r"C:\Users\nayak\Downloads\Celebrity Faces Dataset"
 OUTPUT_DIR = r"C:\Users\nayak\output\celebritirs_pca_svm_rebuilt"
 IMG_SIZE = (160, 160)
 
